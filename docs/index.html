@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课表数据预处理工具</title>
+    <link rel="stylesheet" href="./css/google_fonts.css" />
+    <link rel="stylesheet" href="./css/style.css">
+    <!-- SheetJS for XLS parsing -->
+    <script src="./xlsx.full.min.js"></script>
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Sidebar for School Selection -->
+    <aside class="sidebar glass-effect">
+        <div class="sidebar-header">
+            <h2>选择学校</h2>
+        </div>
+        <div class="search-box">
+            <span class="material-symbols-rounded search-icon">search</span>
+            <input type="text" id="schoolSearch" placeholder="搜索学校...">
+        </div>
+        <ul class="school-list" id="schoolList">
+            <!-- Populated by JS -->
+        </ul>
+    </aside>
+
+    <main class="container">
+        <div class="card glass-effect">
+            <header>
+                <h1>Oh My Class Schedule <span class="highlight">格式助手</span></h1>
+                <p id="adapterDesc">请先在左侧选择您的学校以加载适配器。</p>
+            </header>
+
+            <div class="input-group" id="fileUploadArea" style="display: none;">
+                <div class="label-row">
+                    <label>上传课表文件</label>
+                    <span class="status-badge" id="currentSchoolBadge">未选择</span>
+                </div>
+
+                <div class="upload-zone" id="dropZone">
+                    <input type="file" id="fileInput" class="file-input" accept=".xls,.xlsx,.txt" />
+                    <div class="upload-content">
+                        <span class="material-symbols-rounded upload-icon">cloud_upload</span>
+                        <p>点击上传或拖拽文件至此</p>
+                        <p class="sub-text" id="acceptsText">支持 .xls, .xlsx</p>
+                    </div>
+                </div>
+                <div id="fileInfo" class="file-info hidden">
+                    <span class="material-symbols-rounded">description</span>
+                    <span id="fileName">filename.xls</span>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="processBtn" class="btn-primary" disabled>
+                    <span class="material-symbols-rounded">auto_fix_high</span>
+                    进行处理并复制
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast hidden">
+        <span class="material-symbols-rounded">check_circle</span>
+        <span id="toastMsg">已复制到剪贴板！</span>
+    </div>
+
+    <!-- Core Logic -->
+    <script src="./script.js"></script>
+
+    <!-- Adapters (Add your school here) -->
+    <script src="./adapters/湖南大学.js"></script>
+</body>
+</html>
