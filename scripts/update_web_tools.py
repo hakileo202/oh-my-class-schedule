@@ -13,6 +13,7 @@ INDEX_HTML = os.path.join(DOCS_DIR, "index.html")
 def update_index():
     # 1. Scan for .js files in adapters
     adapter_files = glob.glob(os.path.join(ADAPTERS_DIR, "*.js"))
+    adapter_files.remove(os.path.join(ADAPTERS_DIR, "template.js"))
     print(f"Found {len(adapter_files)} adapters.")
 
     scripts_tags = []

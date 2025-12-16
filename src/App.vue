@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openFileDialog, ask } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { readTextFile } from '@tauri-apps/plugin-fs';
@@ -9,6 +10,40 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import ScheduleGrid from "./components/ScheduleGrid.vue";
 import type { Course } from "./types";
 import { getWeekNumber } from "./utils";
+
+// 窗口控制函数
+const appWindow = getCurrentWindow();
+const isMaximized = ref(false);
+
+async function minimizeWindow() {
+  try {
+    await appWindow.minimize();
+  } catch (e) {
+    console.error('最小化失败:', e);
+  }
+}
+
+async function toggleMaximize() {
+  try {
+    if (await appWindow.isMaximized()) {
+      await appWindow.unmaximize();
+      isMaximized.value = false;
+    } else {
+      await appWindow.maximize();
+      isMaximized.value = true;
+    }
+  } catch (e) {
+    console.error('最大化切换失败:', e);
+  }
+}
+
+async function closeWindow() {
+  try {
+    await appWindow.close();
+  } catch (e) {
+    console.error('关闭窗口失败:', e);
+  }
+}
 
 const courses = ref<Course[]>([]);
 const isImporting = ref(false);
@@ -41,6 +76,12 @@ const DATE_KEY = 'oh-my-schedule-start-date';
 const UPDATE_KEY = 'oh-my-schedule-auto-update';
 
 onMounted(() => {
+  // 平台检测先执行
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) {
+    isMobile.value = true;
+  }
+
   const savedTheme = localStorage.getItem(THEME_KEY);
   if (savedTheme) {
     currentTheme.value = savedTheme;
@@ -72,16 +113,8 @@ onMounted(() => {
     autoUpdateEnabled.value = JSON.parse(savedAutoUpdate);
   }
 
-  if (autoUpdateEnabled.value) {
-    if (!isMobile.value) {
-        checkForUpdates(true);
-    }
-  }
-
-  // Simple mobile detection
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) {
-    isMobile.value = true;
+  if (autoUpdateEnabled.value && !isMobile.value) {
+    checkForUpdates(true);
   }
 });
 
@@ -278,12 +311,30 @@ async function checkForUpdates(silent = false) {
     <!-- Neon grid background -->
     <div class="background-grid" v-if="currentTheme === 'neon'"></div>
 
+    <!-- 自定义标题栏 (仅桌面端显示) -->
+    <div class="custom-titlebar" data-tauri-drag-region v-if="!isMobile">
+      <div class="titlebar-drag-area" data-tauri-drag-region></div>
+      <div class="titlebar-controls">
+        <button class="titlebar-btn" @click="minimizeWindow" title="最小化">
+          <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="2" fill="currentColor"/></svg>
+        </button>
+        <button class="titlebar-btn" @click="toggleMaximize" :title="isMaximized ? '还原' : '最大化'">
+          <svg v-if="!isMaximized" width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <svg v-else width="12" height="12" viewBox="0 0 12 12"><path d="M3,0 h7 v7 h-2 v2 h-7 v-7 h2 z M3,2 v5 h5 v-5 z" fill="currentColor"/></svg>
+        </button>
+        <button class="titlebar-btn close" @click="closeWindow" title="关闭">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1,1 L11,11 M11,1 L1,11" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </div>
+    </div>
+
     <header class="app-header">
       <div class="logo-area">
-        <h1>Oh My Class Schedule</h1>
+        <h1 class="desktop-title">Oh My Class Schedule</h1>
+        <h1 class="mobile-title">OMCS</h1>
       </div>
       
-      <!-- Week Controls -->
+      <!-- Week Controls - 居中 -->
       <div class="week-controls">
         <button class="nav-btn" @click="selectedWeek > 1 ? selectedWeek-- : null">‹</button>
         <span class="week-display" @click="showSettings = true">第 {{ selectedWeek }} 周</span>
@@ -291,8 +342,11 @@ async function checkForUpdates(silent = false) {
       </div>
 
       <div class="actions">
-        <!-- Settings Toggle Only -->
-        <button class="icon-btn" @click="showSettings = !showSettings" title="设置">⚙️</button>
+        <button class="settings-btn-glass" @click="showSettings = !showSettings" title="设置">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+          </svg>
+        </button>
       </div>
     </header>
     
@@ -398,7 +452,9 @@ body {
   background-image: linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
   linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
   background-size: 40px 40px;
+  background-size: 40px 40px;
   animation: gridMove 20s linear infinite;
+  will-change: transform; /* GPU hint */
 }
 
 @keyframes gridMove {
@@ -485,15 +541,43 @@ body {
 }
 
 .settings-modal {
-  background: var(--glass-bg); /* Opaque enough or use solid */
-  background-color: white; /* Fallback */
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  min-width: 300px;
+  background: var(--glass-bg);
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: 85vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.8rem;
+}
+
+/* Custom Scrollbar for Settings Modal */
+.settings-modal::-webkit-scrollbar {
+  width: 5px; /* Thinner */
+}
+.settings-modal::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 10px 0; /* Float effect */
+}
+.settings-modal::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15); /* Lighter default */
+  border-radius: 10px; /* Fully rounded */
+}
+.settings-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+@media (prefers-color-scheme: dark) {
+  .settings-modal::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .settings-modal::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
 }
 
 .settings-modal h3 {
@@ -635,6 +719,7 @@ body {
   filter: blur(80px);
   opacity: 0.6;
   animation: float 20s infinite ease-in-out;
+  will-change: transform; /* GPU hint */
 }
 
 .globe-1 {
@@ -673,14 +758,25 @@ body {
 
 /* Header */
 .app-header {
-  padding: 1rem 2rem;
+  padding: 0.8rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  backdrop-filter: blur(10px);
-  background: var(--glass-bg);
-  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
+}
+
+.logo-area {
+  flex: 1;
+}
+
+.actions {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .logo-area h1 {
@@ -743,5 +839,232 @@ body {
   opacity: 0.6;
   margin-bottom: 1rem;
 }
+
+/* ========================================
+   自定义标题栏样式
+======================================== */
+.custom-titlebar {
+  height: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 8px;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.titlebar-drag-area {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+.titlebar-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 46px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn:hover {
+  background: rgba(128, 128, 128, 0.3);
+}
+
+.titlebar-btn.close:hover {
+  background: #e81123;
+  color: white;
+}
+
+/* 玉璃风格设置按钮 */
+.settings-btn-glass {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.settings-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: rotate(30deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.settings-btn-glass svg {
+  opacity: 0.8;
+}
+
+/* ========================================
+   响应式布局 + 移动端标题
+======================================== */
+.desktop-title {
+  display: block;
+}
+.mobile-title {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .desktop-title {
+    display: none;
+  }
+  .mobile-title {
+    display: block;
+  }
+  
+  .app-header {
+    padding: 0.8rem 1rem;
+  }
+  
+  .logo-area h1 {
+    font-size: 1.2rem;
+  }
+  
+  .week-controls {
+    padding: 4px 12px;
+    gap: 8px;
+  }
+  
+  .nav-btn {
+    font-size: 1.2rem;
+    padding: 0 6px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+  
+  .icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.4rem;
+  }
+  
+  /* .custom-titlebar visibility is controlled by v-if="!isMobile" in template now. 
+     Removing CSS display:none allows it to show on small desktop windows. */
+}
+
+/* ========================================
+   设置弹窗动画增强
+======================================== */
+.settings-modal-overlay {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.settings-modal {
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Toggle 开关美化 */
+.toggle-checkbox {
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background: rgba(120, 120, 128, 0.3);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.toggle-checkbox::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-checkbox:checked {
+  background: var(--primary-color);
+}
+
+.toggle-checkbox:checked::before {
+  transform: translateX(20px);
+}
+
+/* ========================================
+   透明背景支持 (配合原生窗口效果)
+======================================== */
+html, body, #app {
+  background: transparent !important;
+}
+
+.app-container {
+  background: var(--bg-gradient);
+  border-radius: 0;
+}
+
+.app-container {
+  background: var(--bg-gradient);
+  border-radius: 0;
+}
+
+/* Removed desktop-specific overrides to match user preference */
+
+/* ========================================
+   优化字体栈
+======================================== */
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', 'Noto Sans', system-ui, sans-serif;
+}
+
+/* ========================================
+   全局过渡动画优化
+======================================== */
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 减少动画 (用户偏好) */
+/* 减少动画 (用户偏好) - Removed to enforce custom animations */
 
 </style>

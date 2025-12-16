@@ -1,6 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod parser;
 use parser::Course;
+use tauri::Manager;
 
 #[tauri::command]
 fn import_schedule(content: String) -> Result<Vec<Course>, String> {
@@ -9,7 +10,6 @@ fn import_schedule(content: String) -> Result<Vec<Course>, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 需要是 mut 来应对安卓情况
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_fs::init())
@@ -22,7 +22,32 @@ pub fn run() {
     }
 
     builder
+        .setup(|app| {
+            // 应用平台特定的窗口效果
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                let window = app.get_webview_window("main").unwrap();
+
+                #[cfg(target_os = "macos")]
+                {
+                    use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+                    apply_vibrancy(&window, NSVisualEffectMaterial::HudWindow, None, None)
+                        .expect("无法应用 macOS vibrancy 效果");
+                }
+
+                #[cfg(target_os = "windows")]
+                {
+                    use window_vibrancy::{apply_acrylic, apply_mica};
+                    // 尝试 Mica (Windows 11)，失败则回退到 Acrylic (Windows 10)
+                    if apply_mica(&window, Some(true)).is_err() {
+                        apply_acrylic(&window, Some((18, 18, 18, 125)))
+                            .expect("无法应用 Windows Acrylic 效果");
+                    }
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![import_schedule])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("运行 Tauri 应用时出错");
 }

@@ -50,7 +50,7 @@ def main():
     update_json("src-tauri/tauri.conf.json", "version", new_version)
 
     # 3. Update Cargo.toml
-    update_toml("src-tauri/Cargo.toml", "version", new_version)
+    update_toml("src-tauri/Cargo.toml", "package", "version", new_version)
 
     print(f"\nSuccessfully updated project to version {new_version}")
 

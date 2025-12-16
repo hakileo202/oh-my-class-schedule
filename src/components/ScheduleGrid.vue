@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+
 import type { Course } from '../types';
 import CourseCard from './CourseCard.vue';
 import { isCourseActiveInWeek, getWeekNumber } from '../utils';
@@ -23,7 +24,18 @@ const headerIndexMap: Record<string, number> = {
 };
 
 // 12 slots for the day
-const timeSlots = Array.from({ length: 12 }, (_, i) => i + 1);
+// Calculate visible time slots (auto-hide 11-12 if empty)
+const timeSlots = computed(() => {
+  const maxSlot = parsedCourses.value.reduce((max, c) => {
+    // gridRowEnd is (endSlot + 2), so endSlot is (gridRowEnd - 2)
+    const endSlot = c.gridRowEnd - 2; 
+    return Math.max(max, endSlot);
+  }, 10); // Minimum 10 slots
+
+  // If max used slot is <= 10, show 10 slots. Otherwise show 12.
+  const count = maxSlot > 10 ? 12 : 10;
+  return Array.from({ length: count }, (_, i) => i + 1);
+});
 
 interface GridCourse extends Course {
   gridColumn: number;
@@ -88,9 +100,13 @@ const realCurrentWeek = computed(() => {
 });
 
 const gridStyle = computed(() => {
-    const columns = showWeekend.value ? 7 : 5;
+    // Uses 8 columns always (Time + 7 Days).
+    // If weekend hidden, last 2 columns animate to 0fr.
+    // We use 0.0001fr to allow transition interpolation (0fr sometimes doesn't animate in some browsers).
+    const weekendWidth = showWeekend.value ? '1fr' : '0.0001fr';
+    
     return {
-        gridTemplateColumns: `32px repeat(${columns}, minmax(0, 1fr))`
+        gridTemplateColumns: `28px repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, ${weekendWidth}))`
     };
 });
 
@@ -167,19 +183,29 @@ function isToday(dayName: string): boolean {
       </div>
 
       <!-- Courses -->
-      <div 
-        v-for="(course, index) in parsedCourses" 
-        :key="index"
-        class="course-wrapper"
-        :style="{
-          gridColumn: course.gridColumn,
-          gridRowStart: course.gridRowStart,
-          gridRowEnd: course.gridRowEnd,
-          display: (course.dayIndex > 4 && !showWeekend) ? 'none' : 'block' // Safety check
-        }"
-      >
-        <CourseCard :course="course" :theme="props.theme" />
-      </div>
+      <TransitionGroup name="course" tag="div" style="display: contents">
+        <div 
+          v-for="(course) in parsedCourses" 
+          :key="`${course.name}-${course.dayIndex}-${course.time}`"
+          class="course-wrapper"
+          :style="{
+            gridColumn: course.gridColumn,
+            gridRowStart: course.gridRowStart,
+            gridRowEnd: course.gridRowEnd,
+            // When weekend hidden, grid cols 7 & 8 shrink to 0.
+            // We should hide content in them to avoid overflow/mess, BUT
+            // during 'leave' animation we might want them to fade.
+            // Since the column width shrinks, opacity fade is good. 
+            // We only force hide if it's NOT leaving? 
+            // Actually, simply letting them clip or overflow:hidden in the cell is best.
+            // course-wrapper has overflow:hidden.
+            // So just let standard Vue transition handle removal.
+            // display: 'block' is fine.
+          }"
+        >
+          <CourseCard :course="course" :theme="props.theme" />
+        </div>
+      </TransitionGroup>
     </div>
   </div>
 </template>
@@ -199,13 +225,14 @@ function isToday(dayName: string): boolean {
 .schedule-grid {
   display: grid;
   /* grid-template-columns is set dynamically via inline style */
-  /* Header row + 12 time slots. Use 1fr to strictly fit container height */
-  grid-template-rows: 32px repeat(12, minmax(0, 1fr));
-  gap: 2px; /* Very tight gap */
+  /* Header row + data rows. Use 1fr to strictly fit container height */
+  grid-template-rows: 30px repeat(v-bind('timeSlots.length'), minmax(0, 1fr));
+  gap: 2px;
   flex-grow: 1; 
   height: 100%; /* Force fill */
   min-width: 0;
   position: relative;
+  transition: all 0.3s ease; /* Smooth resize */
 }
 
 /* Mobile Optimizations - remove fallback min-width */
@@ -231,10 +258,11 @@ function isToday(dayName: string): boolean {
 }
 
 .day-header {
-  font-size: 0.9em;
+  font-size: 0.8em;
   flex-direction: column; /* Stack name and date */
-  gap: 2px;
+  gap: 1px;
   line-height: 1;
+  padding: 2px 0;
 }
 
 .day-name {
@@ -254,8 +282,19 @@ function isToday(dayName: string): boolean {
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  opacity: 0.7;
-  font-size: 0.7em;
+  opacity: 0.6;
+  font-size: 0.65em;
+  color: var(--text-main);
+}
+
+/* Paper Theme Low Contrast Fix */
+:global(.app-container[style*="--glass-bg: rgba(255, 255, 255, 0.95)"] .time-cell),
+/* Or cleaner: check prop via class? But style is scoped. Better to rely on --text-main. 
+   Paper theme sets --text-main to #333. Opacity 0.6 makes it ~#888 on white. 
+   We want it darker. */
+.time-cell {
+  /* Dynamic opacity boost for light themes if needed, or just remove opacity */
+  opacity: 0.8; 
 }
 
 .grid-column-bg {
@@ -298,7 +337,41 @@ function isToday(dayName: string): boolean {
   box-shadow: 0 0 5px rgba(255,255,255, 0.2);
 }
 
+
+/* Course Animations */
+.course-move,
+.course-enter-active,
+.course-leave-active {
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.course-enter-from,
+.course-leave-to {
+  opacity: 0;
+  transform: scale(0.85) translateY(10px);
+  filter: blur(4px); /* Glassy fade effect */
+}
+
+/* Ensure leaving items are taken out of flow (optional if grid position is static)
+   But for grid, leaving items usually stay in their cell until gone.
+   Overlapping is handled by z-index usually. */
+/* Ensure leaving items are taken out of flow (optional if grid position is static)
+   But for grid, leaving items usually stay in their cell until gone.
+   Overlapping is handled by z-index usually. */
+.course-leave-active {
+  /* Using position: absolute creates sizing issues in Grid. 
+     Just letting them overlap in the same grid cell works fine for cross-fade. */
+  z-index: 1; /* Lower than entering items */
+  /* Remove width/height 100% as that referred to container, causing explosion */
+  pointer-events: none; /* Don't block clicks while fading */
+}
+
+.course-enter-active {
+  z-index: 5; /* Ensure new item is on top */
+}
+
 .course-wrapper {
+  /* transition handled by transition-group classes above */
   z-index: 10;
   padding: 0; 
   width: 100%;

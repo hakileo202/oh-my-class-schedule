@@ -100,45 +100,62 @@ const colorStyle = computed(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* Changed from space-between */
-  gap: 2px; /* Explicit small gap */
-  padding: 3px; /* Reduced padding further */
-  border-radius: 4px; /* Slightly tighter radius */
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 2px 3px;
+  border-radius: 6px;
   background-color: var(--card-bg);
   color: var(--card-text);
   border: 1px solid var(--card-border);
-  box-shadow: var(--card-shadow);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  /* Fix Android Backdrop Filter glitch by allowing prop to control it or using fallback */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   overflow: hidden;
   box-sizing: border-box;
+  position: relative;
+}
+
+/* 卡片光泽效果 */
+.course-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
 }
 
 .course-card:hover {
-  transform: translateY(-1px) scale(1.01);
+  transform: translateY(-2px) scale(1.02);
   z-index: 15;
+  box-shadow: var(--card-shadow), 0 8px 16px rgba(0,0,0,0.15);
+}
+
+.course-card:hover::before {
+  left: 100%;
 }
 
 .course-name {
   font-weight: 700;
-  font-size: 0.7em; /* Compact font */
-  line-height: 1.1;
+  font-size: 0.68em;
+  line-height: 1.15;
   margin-bottom: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  word-break: break-all; /* Ensure long words break */
+  word-break: break-all;
 }
 
 .course-info {
-  font-size: 0.6em; /* Very compact info */
-  opacity: 0.95;
-  /* margin-top: auto; Removed for tighter layout */
+  font-size: 0.58em;
+  opacity: 0.9;
 }
 
 .info-row {
