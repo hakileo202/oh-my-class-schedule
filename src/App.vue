@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from '@tauri-apps/plugin-dialog';
+import { open as openFileDialog, ask } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { readTextFile } from '@tauri-apps/plugin-fs';
+import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 import ScheduleGrid from "./components/ScheduleGrid.vue";
 import type { Course } from "./types";
 import { getWeekNumber } from "./utils";
@@ -26,10 +29,16 @@ const startSemDate = ref<string>(new Date().toISOString().split('T')[0]); // YYY
 const selectedWeek = ref(1);
 const showSettings = ref(false);
 
+// Auto Update
+const autoUpdateEnabled = ref(false);
+const isCheckingUpdate = ref(false);
+const isMobile = ref(false); // Platform check
+
 // Persistence Keys
 const TASKS_KEY = 'oh-my-schedule-data';
 const THEME_KEY = 'oh-my-schedule-theme';
 const DATE_KEY = 'oh-my-schedule-start-date';
+const UPDATE_KEY = 'oh-my-schedule-auto-update';
 
 onMounted(() => {
   const savedTheme = localStorage.getItem(THEME_KEY);
@@ -56,10 +65,32 @@ onMounted(() => {
   const start = new Date(startSemDate.value);
   const w = getWeekNumber(now, start);
   selectedWeek.value = w > 0 ? w : 1;
+
+  // Load auto update setting
+  const savedAutoUpdate = localStorage.getItem(UPDATE_KEY);
+  if (savedAutoUpdate) {
+    autoUpdateEnabled.value = JSON.parse(savedAutoUpdate);
+  }
+
+  if (autoUpdateEnabled.value) {
+    if (!isMobile.value) {
+        checkForUpdates(true);
+    }
+  }
+
+  // Simple mobile detection
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) {
+    isMobile.value = true;
+  }
 });
 
 watch(currentTheme, (newTheme) => {
   localStorage.setItem(THEME_KEY, newTheme);
+});
+
+watch(autoUpdateEnabled, (newValue) => {
+  localStorage.setItem(UPDATE_KEY, JSON.stringify(newValue));
 });
 
 watch(courses, (newCourses) => {
@@ -154,7 +185,7 @@ const rootStyle = computed(() => {
 async function handleImport() {
   try {
     isImporting.value = true;
-    const path = await open({
+    const path = await openFileDialog({
       filters: [{
         name: 'Schedule File',
         extensions: ['txt']
@@ -165,12 +196,74 @@ async function handleImport() {
        const filePath = typeof path === 'string' ? path : (path as any).path; 
        const content = await readTextFile(filePath);
        courses.value = await invoke("import_schedule", { content });
+       // Close modal on success
+       showSettings.value = false;
     }
   } catch (err) {
     console.error("Failed to import schedule:", err);
     alert("导入失败: " + err);
   } finally {
     isImporting.value = false;
+  }
+}
+
+async function openWebTool() {
+  await openUrl('https://2bitbit.github.io/oh-my-class-schedule/');
+}
+
+async function checkForUpdates(silent = false) {
+  const RELEASES_URL = 'https://github.com/2bitbit/oh-my-class-schedule/releases/latest';
+  
+  try {
+    isCheckingUpdate.value = true;
+    
+    // 移动端：直接提供下载链接
+    if (isMobile.value) {
+      const yes = await ask(
+        '安卓版需要手动下载更新。\n\n点击「前往下载」将打开 GitHub 发布页面。', 
+        { 
+          title: '检查更新',
+          kind: 'info',
+          okLabel: '前往下载',
+          cancelLabel: '取消'
+        }
+      );
+      if (yes) {
+        await openUrl(RELEASES_URL);
+      }
+      return;
+    }
+    
+    // 桌面端：自动检测并下载更新
+    const update = await check();
+    if (update && update.available) {
+      const yes = await ask(
+        `发现新版本 v${update.version}\n\n更新内容:\n${update.body}`, 
+        { 
+          title: 'Oh My Schedule 更新',
+          kind: 'info',
+          okLabel: '立即更新',
+          cancelLabel: '稍后'
+        }
+      );
+      if (yes) {
+        await update.downloadAndInstall();
+        await relaunch();
+      }
+    } else if (!silent) {
+       await ask('当前已是最新版本', { 
+         title: '检查更新', 
+         kind: 'info',
+         okLabel: '确定'
+       });
+    }
+  } catch (error) {
+    console.error(error);
+    if (!silent) {
+      await ask(`检查更新失败: ${error}`, { title: '错误', kind: 'error' });
+    }
+  } finally {
+    isCheckingUpdate.value = false;
   }
 }
 </script>
@@ -198,13 +291,8 @@ async function handleImport() {
       </div>
 
       <div class="actions">
-        <!-- Settings Toggle -->
+        <!-- Settings Toggle Only -->
         <button class="icon-btn" @click="showSettings = !showSettings" title="设置">⚙️</button>
-        
-        <button @click="handleImport" class="import-btn" :disabled="isImporting">
-          <span v-if="isImporting">...</span>
-          <span v-else>导入课表</span>
-        </button>
       </div>
     </header>
     
@@ -220,9 +308,31 @@ async function handleImport() {
           </option>
         </select>
         
-        <label>第一周周一 (请选择该日)</label>
+        
+        <label>第一周的周一是哪一天？</label>
         <input type="date" v-model="startSemDate" class="date-input" />
-        <p class="hint">以此日期为基准计算周次</p>
+
+
+        <label>更新设置</label>
+        <div class="setting-row">
+            <span>自动检查更新</span>
+            <input type="checkbox" v-model="autoUpdateEnabled" class="toggle-checkbox" />
+        </div>
+        <button @click="checkForUpdates(false)" class="secondary-btn" :disabled="isCheckingUpdate">
+            {{ isCheckingUpdate ? '检查中...' : '检查更新' }}
+        </button>
+        <div class="settings-divider"></div>
+        
+        <label>数据管理</label>
+        <div class="button-group">
+            <button @click="openWebTool" class="secondary-btn">
+                🌍 打开网页转换工具
+            </button>
+            <button @click="handleImport" class="import-btn" :disabled="isImporting">
+                <span v-if="isImporting">导入中...</span>
+                <span v-else>📂 导入课表文件</span>
+            </button>
+        </div>
         
         <button class="close-btn" @click="showSettings = false">关闭</button>
       </div>
@@ -434,6 +544,50 @@ body {
   .hint {
     color: #aaa;
   }
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 1rem 0;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.secondary-btn {
+  background: transparent;
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  padding: 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.secondary-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.settings-modal .import-btn {
+  width: 100%;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.toggle-checkbox {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
 }
 
 

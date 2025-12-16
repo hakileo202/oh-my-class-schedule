@@ -1,3 +1,7 @@
+"""
+添加新的 Adapter 后，需要运行此脚本
+"""
+
 import os
 import glob
 

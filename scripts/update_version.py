@@ -1,21 +1,22 @@
+"""
+用于统一更新所有位置下的版本号
+"""
+
 import json
+import toml
 import re
 import sys
-import os
 
 
-def update_file(file_path, pattern, replacement):
+def update_toml(file_path, key_1, key_2, new_value):
     with open(file_path, "r", encoding="utf-8") as f:
-        content = f.read()
+        data = toml.load(f)
 
-    new_content = re.sub(pattern, replacement, content, count=1)
+    data[key_1][key_2] = new_value
 
-    if content == new_content:
-        print(f"Warning: No changes made to {file_path}")
-    else:
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
-        print(f"Updated {file_path}")
+    with open(file_path, "w", encoding="utf-8") as f:
+        toml.dump(data, f)
+    print(f"Updated {file_path}")
 
 
 def update_json(file_path, key, new_value):
@@ -36,6 +37,9 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python update_version.py <new_version>")
         sys.exit(1)
+    if not re.match(r"^\d+\.\d+\.\d+$", sys.argv[1]):
+        print("Version must be in the format X.Y.Z")
+        sys.exit(1)
 
     new_version = sys.argv[1]
 
@@ -46,11 +50,7 @@ def main():
     update_json("src-tauri/tauri.conf.json", "version", new_version)
 
     # 3. Update Cargo.toml
-    # Cargo.toml doesn't accept robust JSON parsing, using regex
-    # Pattern looks for: version = "0.0.0"
-    cargo_pattern = r'version = "[^"]+"'
-    cargo_replacement = f'version = "{new_version}"'
-    update_file("src-tauri/Cargo.toml", cargo_pattern, cargo_replacement)
+    update_toml("src-tauri/Cargo.toml", "version", new_version)
 
     print(f"\nSuccessfully updated project to version {new_version}")
 

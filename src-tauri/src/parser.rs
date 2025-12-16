@@ -15,7 +15,7 @@ pub fn parse_schedule_file(content: &str) -> Result<Vec<Course>, String> {
     let mut current_section = String::new();
 
     // Trim and filter empty lines
-    let mut lines = content.lines().map(|l| l.trim()).filter(|l| !l.is_empty());
+    let lines = content.lines().map(|l| l.trim()).filter(|l| !l.is_empty());
     let mut peekable = lines.peekable();
 
     while let Some(line) = peekable.next() {
