@@ -97,7 +97,7 @@ const colorStyle = computed(() => {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 1px;
+  gap: 5px;
   padding: 2px 3px;
   border-radius: 6px;
   background-color: var(--card-bg);
@@ -138,7 +138,7 @@ const colorStyle = computed(() => {
 
 .course-name {
   font-weight: 700;
-  font-size: clamp(10px, 1.2vw, 16px);
+  font-size: clamp(8px, 2vw, 14px);
   flex: none;
   line-height: 1.15;
   margin-bottom: 0;
@@ -150,18 +150,18 @@ const colorStyle = computed(() => {
 }
 
 .course-info {
-  font-size: 70%;
+  font-size: 60%;
   opacity: 0.9;
-  width: 120%;
-  transform: scale(0.85);
   transform-origin: top left;
-
 }
 
 .info-row {
   display: flex;
   overflow: hidden;
-  font-size: clamp(8px, 1.5vw, 10px);
+  transform: scale(0.80);
+  transform-origin: left;
+  width: 130%;
+  font-size: clamp(8px, 1.8vw, 12px);
 }
 
 .course-info {

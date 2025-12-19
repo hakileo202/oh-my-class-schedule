@@ -121,13 +121,17 @@ jobs:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload-keystore.jks
         run: ${{ matrix.command }}
 
+      - name: Get Version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Rename APK
         run: |
-          find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -type f -exec mv {} oh-my-class-schedule-android-${{ matrix.label }}.apk \;
+          find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -type f -exec mv {} oh-my-class-schedule_${{ env.VERSION }}_android_${{ matrix.label }}.apk \;
 
       - name: Upload Android Assets
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           draft: true # Ensure it is a draft so you can review before publishing
-          files: oh-my-class-schedule-android-${{ matrix.label }}.apk
+          files: oh-my-class-schedule_${{ env.VERSION }}_android_${{ matrix.label }}.apk

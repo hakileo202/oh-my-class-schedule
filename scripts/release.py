@@ -46,8 +46,9 @@ def update_version(new_version):
 
 def git_push(new_version):
     print("=======================================================")
-    print("\033[92mPlease run git tag v{}\033[0m".format(new_version))
-    print("\033[92mAnd then run git push origin v{}\033[0m".format(new_version))
+    print(
+        f"\033[92mPlease wait for cargo.lock to update, then run git tag v{new_version} && git push origin v{new_version}\033[0m"
+    )
 
 
 def main():

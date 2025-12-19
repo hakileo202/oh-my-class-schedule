@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getVersion } from "@tauri-apps/api/app";
-import { open as openFileDialog, ask } from '@tauri-apps/plugin-dialog';
+import { open as openFileDialog, ask, message } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { check } from '@tauri-apps/plugin-updater';
@@ -114,7 +114,7 @@ onMounted(() => {
     autoUpdateEnabled.value = JSON.parse(savedAutoUpdate);
   }
 
-  if (autoUpdateEnabled.value && !isMobile.value) {
+  if (autoUpdateEnabled.value) {
     checkForUpdates(true);
   }
 });
@@ -280,10 +280,10 @@ async function checkForUpdates(silent = false) {
         }
       } else if (!silent) {
         // Latest
-        await ask('当前已是最新版本', {
+        await message('当前已是最新版本', {
           title: '检查更新',
           kind: 'info',
-          okLabel: '确定'
+          okLabel: '确定',
         });
       }
       return;
@@ -306,7 +306,7 @@ async function checkForUpdates(silent = false) {
         await relaunch();
       }
     } else if (!silent) {
-      await ask('当前已是最新版本', {
+      await message('当前已是最新版本', {
         title: '检查更新',
         kind: 'info',
         okLabel: '确定'
@@ -316,16 +316,8 @@ async function checkForUpdates(silent = false) {
     console.error(error);
     if (!silent) {
       // Catch specific error for missing release file (common on first install)
-      const errStr = String(error);
-      if (errStr.includes("Could not fetch a valid release JSON") || errStr.includes("404")) {
-        await ask('未找到发布信息。', {
-          title: '检查更新',
-          kind: 'info',
-          okLabel: '确定'
-        });
-      } else {
-        await ask(`检查更新失败: ${error}`, { title: '错误', kind: 'error' });
-      }
+      await ask(`检查更新失败: ${error}`, { title: '错误', kind: 'error' });
+
     }
   } finally {
     isCheckingUpdate.value = false;
@@ -519,7 +511,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-width: 50%;
+  /* min-width: 50%; */
+  width: clamp(150px, 50%, 300px);
+
 
   gap: 12px;
   background: var(--glass-bg);
@@ -599,14 +593,13 @@ body {
   border-radius: 16px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   width: 320px;
-  max-width: calc(100vw - 32px);
-  max-height: 85vh;
+  max-width: calc(80vw - 32px);
+  max-height: 75vh;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  height: 100%;
+  gap: 0.6rem;
 }
 
 /* Custom Scrollbar for Settings Modal */
